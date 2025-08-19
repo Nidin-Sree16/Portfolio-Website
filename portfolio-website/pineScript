@@ -1,0 +1,368 @@
+//@version=5
+indicator("NY Killzone SMC iFVG Multi-TF [v5]", overlay=true, max_boxes_count=500)
+
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// 📊 SMART MONEY CONCEPTS (SMC) INDICATOR EXPLANATION
+// ═══════════════════════════════════════════════════════════════════════════════════════
+//
+// 🎯 WHAT THIS INDICATOR SHOWS:
+//
+// 1️⃣ iFVG ZONES (Purple/Orange Filled Areas):
+//    • iFVG = Inverse Fair Value Gap
+//    • Areas where institutional orders are likely to be filled
+//    • Created when bullish and bearish FVGs overlap on higher timeframes (3M & 5M)
+//    • Smart money uses these zones to enter positions
+//    • Price often reacts strongly when entering these zones
+//
+// 2️⃣ LIQUIDITY LEVELS (Red/Green Step Lines):
+//    • Red Line = Significant Highs (Resistance/Stop Hunt Targets)
+//    • Green Line = Significant Lows (Support/Stop Hunt Targets)
+//    • These are levels where retail stop losses are placed
+//    • Smart money "sweeps" these levels to grab liquidity before reversing
+//
+// 3️⃣ MANIPULATION SIGNALS:
+//    • "SWEEP" labels show when liquidity levels are broken
+//    • This indicates smart money is hunting stops
+//    • Often followed by reversal back into iFVG zones
+//
+// 4️⃣ ENTRY SIGNALS:
+//    • BUY/SELL signals appear when:
+//      ✅ Liquidity sweep occurs (manipulation)
+//      ✅ Price is inside an iFVG zone (institutional interest)
+//      ✅ During NY session (high volume/activity)
+//      ✅ Risk-reward ratio is favorable (2:1 minimum)
+//
+// 5️⃣ SIGNAL PAIRING:
+//    • Shows which BUY/SELL signals form complete trades
+//    • Connected by lines with "PAIR X" labels
+//    • Helps track entry and exit relationships
+//
+// 💡 TRADING LOGIC:
+//    Smart money creates liquidity sweeps → enters in iFVG zones → price reverses
+//    This indicator identifies these high-probability reversal setups
+//
+// ═══════════════════════════════════════════════════════════════════════════════════════
+
+// --- SESSION FILTER: NY only (9:30AM–4:00PM ET, Mon–Fri) ---
+tz = "America/New_York"
+sess_start = 9 * 60 + 30  // 9:30am in minutes
+sess_end   = 16 * 60      // 4:00pm in minutes
+minutes    = (hour(time, tz) * 60) + minute(time, tz)
+ny_sess   = (minutes >= sess_start) and (minutes < sess_end)
+weekday   = (dayofweek(time, tz) >= dayofweek.monday) and (dayofweek(time, tz) <= dayofweek.friday)
+in_session = ny_sess and weekday
+
+// --- SWING HIGH/LOW: For liquidity sweep detection ---
+swing_len = input.int(5, "Swing Strength", minval=3, maxval=20)
+is_swing_high = ta.pivothigh(high, swing_len, swing_len)
+is_swing_low  = ta.pivotlow (low, swing_len, swing_len)
+
+plotshape(not na(is_swing_high) and in_session, style=shape.triangledown, color=color.red, title="Swing High", size=size.tiny)
+plotshape(not na(is_swing_low)  and in_session, style=shape.triangleup,   color=color.green, title="Swing Low", size=size.tiny)
+
+// --- MULTI-TIMEFRAME iFVG DETECTOR ---
+fvg_len  = 20  // Box extension length
+fvg_tf_1 = input.timeframe("3", "HTF #1 (ex: 3m)")
+fvg_tf_2 = input.timeframe("5", "HTF #2 (ex: 5m)")
+
+// Get HTF data with proper security calls
+[htf1_h, htf1_l, htf1_h1, htf1_l1, htf1_h2, htf1_l2] = request.security(syminfo.tickerid, fvg_tf_1, [high, low, high[1], low[1], high[2], low[2]], lookahead=barmerge.lookahead_off)
+[htf2_h, htf2_l, htf2_h1, htf2_l1, htf2_h2, htf2_l2] = request.security(syminfo.tickerid, fvg_tf_2, [high, low, high[1], low[1], high[2], low[2]], lookahead=barmerge.lookahead_off)
+
+// Classic FVG logic - Bullish FVG: low[1] > high[2], Bearish FVG: high[1] < low[2]
+bull_fvg_1 = htf1_l1 > htf1_h2
+bear_fvg_1 = htf1_h1 < htf1_l2
+bull_fvg_2 = htf2_l1 > htf2_h2
+bear_fvg_2 = htf2_h1 < htf2_l2
+
+// iFVG: Inverse Fair Value Gap (overlapping bull and bear FVG)
+ifvg_zone_1 = bull_fvg_1 and bear_fvg_1
+ifvg_zone_2 = bull_fvg_2 and bear_fvg_2
+
+// Calculate iFVG zone boundaries - CORRECTED LOGIC
+// For iFVG: top = higher of the two lows, bottom = lower of the two highs
+ifvg_top_1 = ifvg_zone_1 ? math.max(htf1_l1, htf1_l2) : na
+ifvg_bottom_1 = ifvg_zone_1 ? math.min(htf1_h1, htf1_h2) : na
+ifvg_top_2 = ifvg_zone_2 ? math.max(htf2_l1, htf2_l2) : na
+ifvg_bottom_2 = ifvg_zone_2 ? math.min(htf2_h1, htf2_h2) : na
+
+// Debug: Plot individual FVG components
+plotshape(bull_fvg_1, "Bull FVG 1", shape.triangleup, location.belowbar, color.lime, size=size.tiny)
+plotshape(bear_fvg_1, "Bear FVG 1", shape.triangledown, location.abovebar, color.red, size=size.tiny)
+plotshape(bull_fvg_2, "Bull FVG 2", shape.triangleup, location.belowbar, color.green, size=size.tiny)
+plotshape(bear_fvg_2, "Bear FVG 2", shape.triangledown, location.abovebar, color.maroon, size=size.tiny)
+
+// Draw iFVG zones using plot fills (adapts to zoom/scroll)
+// These represent INVERSE FAIR VALUE GAPS - areas where institutional orders are likely to be filled
+
+// Plot iFVG zone boundaries as lines that extend properly
+ifvg_1_top_line = plot(ifvg_zone_1 and not na(ifvg_top_1) and ifvg_top_1 > ifvg_bottom_1 ? ifvg_top_1 : na, "iFVG 3M Top", color.white, linewidth=2, style=plot.style_line)
+ifvg_1_bottom_line = plot(ifvg_zone_1 and not na(ifvg_bottom_1) and ifvg_top_1 > ifvg_bottom_1 ? ifvg_bottom_1 : na, "iFVG 3M Bottom", color.white, linewidth=2, style=plot.style_line)
+
+ifvg_2_top_line = plot(ifvg_zone_2 and not na(ifvg_top_2) and ifvg_top_2 > ifvg_bottom_2 ? ifvg_top_2 : na, "iFVG 5M Top", color.white, linewidth=2, style=plot.style_line)
+ifvg_2_bottom_line = plot(ifvg_zone_2 and not na(ifvg_bottom_2) and ifvg_top_2 > ifvg_bottom_2 ? ifvg_bottom_2 : na, "iFVG 5M Bottom", color.white, linewidth=2, style=plot.style_line)
+
+// Fill the areas between boundaries with white color (this adapts to zoom/scroll automatically)
+fill(ifvg_1_top_line, ifvg_1_bottom_line, color=color.new(color.white, 80), title="iFVG 3M Zone")
+fill(ifvg_2_top_line, ifvg_2_bottom_line, color=color.new(color.white, 85), title="iFVG 5M Zone")
+
+// Add labels only when new iFVG zones are created
+if ifvg_zone_1 and not na(ifvg_top_1) and ifvg_top_1 > ifvg_bottom_1 and not ifvg_zone_1[1]
+    label.new(x=bar_index, y=(ifvg_top_1 + ifvg_bottom_1)/2, text="iFVG-3M\nInverse Fair Value Gap", color=color.white, style=label.style_label_center, size=size.normal, textcolor=color.black)
+
+if ifvg_zone_2 and not na(ifvg_top_2) and ifvg_top_2 > ifvg_bottom_2 and not ifvg_zone_2[1]
+    label.new(x=bar_index, y=(ifvg_top_2 + ifvg_bottom_2)/2, text="iFVG-5M\nInverse Fair Value Gap", color=color.white, style=label.style_label_center, size=size.normal, textcolor=color.black)
+
+// --- SIGNIFICANT HIGHS AND LOWS VISUALIZATION ---
+// These represent LIQUIDITY LEVELS where stop losses are likely placed
+// Smart money targets these levels for liquidity sweeps before reversing
+
+significant_high = ta.highest(high, swing_len * 2)
+significant_low = ta.lowest(low, swing_len * 2)
+
+// Plot as horizontal lines that extend properly with zoom/scroll
+plot(significant_high, "Liquidity High (Resistance)", color.red, linewidth=2, style=plot.style_stepline)
+plot(significant_low, "Liquidity Low (Support)", color.green, linewidth=2, style=plot.style_stepline)
+
+// Add labels to explain what these levels represent
+if significant_high != significant_high[1]
+    label.new(x=bar_index, y=significant_high, text="LIQUIDITY HIGH\n(Stop Hunt Target)", color=color.red, style=label.style_label_down, size=size.small, textcolor=color.white)
+
+if significant_low != significant_low[1]
+    label.new(x=bar_index, y=significant_low, text="LIQUIDITY LOW\n(Stop Hunt Target)", color=color.green, style=label.style_label_up, size=size.small, textcolor=color.white)
+
+// --- ENTRY CONDITIONS: LIQUIDITY SWEEP + iFVG + NY session ---
+// Enhanced liquidity sweep detection with better logic
+prev_high = ta.highest(high, swing_len * 2)[1]
+prev_low = ta.lowest(low, swing_len * 2)[1]
+
+// Liquidity sweep: price breaks previous high/low AND we have a fresh swing point
+liquidity_sweep_sell = not na(is_swing_high) and high > prev_high and high[1] <= prev_high and in_session
+liquidity_sweep_buy  = not na(is_swing_low) and low < prev_low and low[1] >= prev_low and in_session
+
+// Check if price is inside any VALID iFVG zone
+in_ifvg_1 = not na(ifvg_top_1) and not na(ifvg_bottom_1) and ifvg_top_1 > ifvg_bottom_1 and close <= ifvg_top_1 and close >= ifvg_bottom_1
+in_ifvg_2 = not na(ifvg_top_2) and not na(ifvg_bottom_2) and ifvg_top_2 > ifvg_bottom_2 and close <= ifvg_top_2 and close >= ifvg_bottom_2
+
+// Debug: Show when liquidity sweeps occur
+plotshape(liquidity_sweep_buy, "Liquidity Sweep Buy", shape.labelup, location.belowbar, color.aqua, text="SWEEP", size=size.tiny)
+plotshape(liquidity_sweep_sell, "Liquidity Sweep Sell", shape.labeldown, location.abovebar, color.yellow, text="SWEEP", size=size.tiny)
+
+r2 = 2.0 // Risk:reward minimum
+
+// Signal counter and pairing system
+var int signal_counter = 0
+var int last_signal_bar = 0
+var string last_signal_type = ""
+var int last_signal_id = 0
+var float last_signal_price = 0.0
+var int last_signal_bar_index = 0
+
+// CORRECTED SMART MONEY LOGIC:
+// After liquidity sweep UP (manipulation), smart money SELLS (we should SELL too)
+// After liquidity sweep DOWN (manipulation), smart money BUYS (we should BUY too)
+
+// Generate signals with CORRECT logic - REVERSED for profitability
+sell_signal = liquidity_sweep_sell and (in_ifvg_1 or in_ifvg_2) and in_session  // SELL after upward sweep
+buy_signal  = liquidity_sweep_buy and (in_ifvg_1 or in_ifvg_2) and in_session   // BUY after downward sweep
+
+// Determine which iFVG zone triggered the signal
+signal_from_zone1 = (in_ifvg_1 and not in_ifvg_2)
+signal_from_zone2 = (in_ifvg_2 and not in_ifvg_1)
+signal_from_both = (in_ifvg_1 and in_ifvg_2)
+
+// Risk:Reward checks
+stop_level_buy = ta.lowest(low, swing_len)[1]
+stop_level_sell = ta.highest(high, swing_len)[1]
+
+stop_dist_buy = close - stop_level_buy
+target_dist_buy = stop_dist_buy * r2
+rr_buy_ok = stop_dist_buy > 0 and target_dist_buy > 0
+
+stop_dist_sell = stop_level_sell - close
+target_dist_sell = stop_dist_sell * r2
+rr_sell_ok = stop_dist_sell > 0 and target_dist_sell > 0
+
+// Update signal counter and track pairing
+current_signal_type = ""
+pair_id = 0
+
+if (buy_signal and rr_buy_ok) or (sell_signal and rr_sell_ok)
+    if bar_index != last_signal_bar
+        signal_counter += 1
+        last_signal_bar := bar_index
+
+        // Determine current signal type
+        if buy_signal and rr_buy_ok
+            current_signal_type := "BUY"
+        else if sell_signal and rr_sell_ok
+            current_signal_type := "SELL"
+
+        // Check if this forms a pair with the previous signal
+        if last_signal_type != "" and last_signal_type != current_signal_type
+            // This signal forms a pair with the previous one
+            pair_id := last_signal_id
+        else
+            // This is a new independent signal
+            pair_id := signal_counter
+
+        // Update tracking variables
+        last_signal_type := current_signal_type
+        last_signal_id := pair_id
+        last_signal_price := close
+        last_signal_bar_index := bar_index
+
+// Plot BUY signals with different colors/styles based on zone (using plotshape with fixed text)
+plotshape(buy_signal and rr_buy_ok and signal_from_zone1, title="Buy Zone 1", color=color.lime, style=shape.labelup, text="BUY\n3M", location=location.belowbar, size=size.normal)
+plotshape(buy_signal and rr_buy_ok and signal_from_zone2, title="Buy Zone 2", color=color.green, style=shape.labelup, text="BUY\n5M", location=location.belowbar, size=size.normal)
+plotshape(buy_signal and rr_buy_ok and signal_from_both, title="Buy Both Zones", color=color.yellow, style=shape.labelup, text="BUY\nBOTH", location=location.belowbar, size=size.normal)
+
+// Plot SELL signals with different colors/styles based on zone (using plotshape with fixed text)
+plotshape(sell_signal and rr_sell_ok and signal_from_zone1, title="Sell Zone 1", color=color.red, style=shape.labeldown, text="SELL\n3M", location=location.abovebar, size=size.normal)
+plotshape(sell_signal and rr_sell_ok and signal_from_zone2, title="Sell Zone 2", color=color.maroon, style=shape.labeldown, text="SELL\n5M", location=location.abovebar, size=size.normal)
+plotshape(sell_signal and rr_sell_ok and signal_from_both, title="Sell Both Zones", color=color.orange, style=shape.labeldown, text="SELL\nBOTH", location=location.abovebar, size=size.normal)
+
+// Store signal information for tracking pairs
+var line[] signal_lines = array.new<line>()
+var label[] signal_labels = array.new<label>()
+
+// Create custom labels with dynamic signal IDs and pair information
+if (buy_signal and rr_buy_ok) or (sell_signal and rr_sell_ok)
+    signal_id = str.tostring(signal_counter)
+    pair_text = pair_id != signal_counter ? " (Pair:" + str.tostring(pair_id) + ")" : ""
+
+    if buy_signal and rr_buy_ok
+        // Create custom label for BUY signal with ID and pair info
+        zone_text = signal_from_zone1 ? "3M" : signal_from_zone2 ? "5M" : "BOTH"
+        label_color = signal_from_zone1 ? color.lime : signal_from_zone2 ? color.green : color.yellow
+
+        buy_label = label.new(x=bar_index, y=low - (high - low) * 0.1, text="BUY-" + signal_id + "\n" + zone_text + pair_text, color=label_color, style=label.style_label_up, size=size.normal, textcolor=color.white)
+        array.push(signal_labels, buy_label)
+
+        // Draw target and stop lines
+        target_price = close + target_dist_buy
+        stop_price = stop_level_buy
+
+        target_line = line.new(x1=bar_index, y1=close, x2=bar_index + 15, y2=target_price, color=color.green, width=2, style=line.style_dashed)
+        stop_line = line.new(x1=bar_index, y1=close, x2=bar_index + 15, y2=stop_price, color=color.red, width=2, style=line.style_dashed)
+
+        array.push(signal_lines, target_line)
+        array.push(signal_lines, stop_line)
+
+        // R:R ratio label
+        rr_ratio = math.round(target_dist_buy / stop_dist_buy, 2)
+        rr_label = label.new(x=bar_index + 8, y=(close + target_price) / 2, text="R:R " + str.tostring(rr_ratio), color=color.green, style=label.style_label_left, size=size.small, textcolor=color.white)
+        array.push(signal_labels, rr_label)
+
+    if sell_signal and rr_sell_ok
+        // Create custom label for SELL signal with ID and pair info
+        zone_text = signal_from_zone1 ? "3M" : signal_from_zone2 ? "5M" : "BOTH"
+        label_color = signal_from_zone1 ? color.red : signal_from_zone2 ? color.maroon : color.orange
+
+        sell_label = label.new(x=bar_index, y=high + (high - low) * 0.1, text="SELL-" + signal_id + "\n" + zone_text + pair_text, color=label_color, style=label.style_label_down, size=size.normal, textcolor=color.white)
+        array.push(signal_labels, sell_label)
+
+        // Draw target and stop lines
+        target_price = close - target_dist_sell
+        stop_price = stop_level_sell
+
+        target_line = line.new(x1=bar_index, y1=close, x2=bar_index + 15, y2=target_price, color=color.green, width=2, style=line.style_dashed)
+        stop_line = line.new(x1=bar_index, y1=close, x2=bar_index + 15, y2=stop_price, color=color.red, width=2, style=line.style_dashed)
+
+        array.push(signal_lines, target_line)
+        array.push(signal_lines, stop_line)
+
+        // R:R ratio label
+        rr_ratio = math.round(target_dist_sell / stop_dist_sell, 2)
+        rr_label = label.new(x=bar_index + 8, y=(close + target_price) / 2, text="R:R " + str.tostring(rr_ratio), color=color.green, style=label.style_label_left, size=size.small, textcolor=color.white)
+        array.push(signal_labels, rr_label)
+
+    // Draw connection line between paired signals
+    if pair_id != signal_counter and last_signal_bar_index != 0
+        // This signal is paired with a previous signal - draw connecting line
+        pair_line_color = current_signal_type == "BUY" ? color.lime : color.red
+        pair_line = line.new(x1=last_signal_bar_index, y1=last_signal_price, x2=bar_index, y2=close, color=color.new(pair_line_color, 50), width=3, style=line.style_solid)
+        array.push(signal_lines, pair_line)
+
+        // Add pair relationship label at midpoint
+        mid_x = math.round((last_signal_bar_index + bar_index) / 2)
+        mid_y = (last_signal_price + close) / 2
+        pair_relationship_label = label.new(x=mid_x, y=mid_y, text="PAIR " + str.tostring(pair_id), color=color.new(color.gray, 30), style=label.style_label_center, size=size.small, textcolor=color.white)
+        array.push(signal_labels, pair_relationship_label)
+
+// Plot session background
+bgcolor(in_session ? color.new(color.blue, 95) : na, title="NY Session")
+
+// Plot iFVG zones as background colors for better visibility
+bgcolor(in_ifvg_1 ? color.new(color.white, 90) : na, title="iFVG Zone 1")
+bgcolor(in_ifvg_2 ? color.new(color.white, 92) : na, title="iFVG Zone 2")
+
+// Debug plots
+plotchar(ifvg_zone_1, "iFVG1", "1", location.top, color.purple, size=size.tiny)
+plotchar(ifvg_zone_2, "iFVG2", "2", location.top, color.orange, size=size.tiny)
+
+// Plot signal counter using a simple dot when signals exist
+plotchar(signal_counter > 0, "Signals", "•", location.bottom, color.white, size=size.small)
+
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// 📊 SIMPLE BACKTEST TRACKING
+// ═══════════════════════════════════════════════════════════════════════════════════════
+
+var float total_pnl = 0.0
+var int total_trades = 0
+var int winning_trades = 0
+var float entry_price = 0.0
+var string position_type = ""
+var bool in_position = false
+
+// Track trade entries and exits
+if (buy_signal and rr_buy_ok) and not in_position
+    entry_price := close
+    position_type := "LONG"
+    in_position := true
+    total_trades += 1
+
+if (sell_signal and rr_sell_ok) and not in_position
+    entry_price := close
+    position_type := "SHORT"
+    in_position := true
+    total_trades += 1
+
+// Close positions when opposite signal appears
+if in_position and position_type == "LONG" and (sell_signal and rr_sell_ok)
+    trade_pnl = close - entry_price
+    total_pnl += trade_pnl
+    if trade_pnl > 0
+        winning_trades += 1
+    in_position := false
+    // Show trade result
+    label.new(x=bar_index, y=high, text="CLOSE LONG\nP&L: " + str.tostring(math.round(trade_pnl, 2)), color=trade_pnl > 0 ? color.green : color.red, style=label.style_label_down, size=size.small, textcolor=color.white)
+
+if in_position and position_type == "SHORT" and (buy_signal and rr_buy_ok)
+    trade_pnl = entry_price - close
+    total_pnl += trade_pnl
+    if trade_pnl > 0
+        winning_trades += 1
+    in_position := false
+    // Show trade result
+    label.new(x=bar_index, y=low, text="CLOSE SHORT\nP&L: " + str.tostring(math.round(trade_pnl, 2)), color=trade_pnl > 0 ? color.green : color.red, style=label.style_label_up, size=size.small, textcolor=color.white)
+
+// Display backtest results
+win_rate = total_trades > 0 ? (winning_trades / total_trades) * 100 : 0
+avg_pnl = total_trades > 0 ? total_pnl / total_trades : 0
+
+// Create performance table
+if barstate.islast
+    var table performance_table = table.new(position.top_right, 2, 6, bgcolor=color.white, border_width=1)
+    table.cell(performance_table, 0, 0, "BACKTEST RESULTS", text_color=color.black, text_size=size.normal)
+    table.cell(performance_table, 1, 0, "", text_color=color.black)
+    table.cell(performance_table, 0, 1, "Total Trades:", text_color=color.black)
+    table.cell(performance_table, 1, 1, str.tostring(total_trades), text_color=color.black)
+    table.cell(performance_table, 0, 2, "Winning Trades:", text_color=color.black)
+    table.cell(performance_table, 1, 2, str.tostring(winning_trades), text_color=color.black)
+    table.cell(performance_table, 0, 3, "Win Rate:", text_color=color.black)
+    table.cell(performance_table, 1, 3, str.tostring(math.round(win_rate, 1)) + "%", text_color=color.black)
+    table.cell(performance_table, 0, 4, "Total P&L:", text_color=color.black)
+    table.cell(performance_table, 1, 4, str.tostring(math.round(total_pnl, 2)), text_color=total_pnl > 0 ? color.green : color.red)
+    table.cell(performance_table, 0, 5, "Avg P&L/Trade:", text_color=color.black)
+    table.cell(performance_table, 1, 5, str.tostring(math.round(avg_pnl, 2)), text_color=avg_pnl > 0 ? color.green : color.red)
