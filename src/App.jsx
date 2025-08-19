@@ -5,6 +5,22 @@ import MatrixBackground from './components/MatrixBackground'
 import HolographicCard, { SkillCard, ProjectCard } from './components/HolographicCard'
 import './App.css'
 
+// SEO Component for dynamic meta updates
+const SEOHead = () => {
+  useEffect(() => {
+    // Update page title dynamically
+    document.title = "Nidin Sreenivasan - Software Engineer | Portfolio"
+
+    // Add additional meta tags if needed
+    const metaDescription = document.querySelector('meta[name="description"]')
+    if (metaDescription) {
+      metaDescription.setAttribute('content', 'Nidin Sreenivasan (NidinSree) - Software Engineer 1 at Tekion Corp. Expert in Go, Java, Redis, Python, Spring Boot. Portfolio showcasing projects and experience.')
+    }
+  }, [])
+
+  return null
+}
+
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [activeSection, setActiveSection] = useState('home')
@@ -98,10 +114,11 @@ function App() {
 
   return (
     <div className="app">
+      <SEOHead />
       <MatrixBackground />
 
       {/* Navigation */}
-      <nav className="navbar">
+      <nav className="navbar" role="navigation" aria-label="Main navigation">
         <div className="nav-container">
           <motion.div
             className="nav-logo"
@@ -158,7 +175,8 @@ function App() {
       {/* Main Content */}
       <main>
         {/* Hero Section */}
-        <section id="home" className="hero">
+        <section id="home" className="hero" role="banner">
+          <h1 className="sr-only">Nidin Sreenivasan - Software Engineer Portfolio</h1>
           <div className="hero-container">
             <motion.div
               className="hero-content"
@@ -263,16 +281,18 @@ function App() {
                 viewport={{ once: true }}
               >
                 <p>
-                  I'm a Software Engineer 1 at Tekion Corp with expertise in Go, Java, Redis, and cloud technologies.
-                  Previously worked at Crayon Data on the maya.ai recommendation engine serving millions of users with personalized recommendations.
+                  I'm <strong>Nidin Sreenivasan</strong> (also known as <strong>NidinSree</strong>), a Software Engineer 1 at <strong>Tekion Corp</strong> with expertise in <strong>Go (Golang)</strong>, <strong>Java</strong>, <strong>Redis</strong>, and cloud technologies.
+                  Previously worked at <strong>Crayon Data</strong> on the maya.ai recommendation engine serving millions of users with personalized recommendations.
                 </p>
                 <p>
-                  I graduated from Coimbatore Institute of Technology with a CGPA of 8.36/10.0 in Computer Science and Engineering.
+                  I graduated from <strong>Coimbatore Institute of Technology</strong> with a CGPA of 8.36/10.0 in <strong>Computer Science and Engineering</strong>.
                   My experience spans from building scalable backend systems to optimizing automation processes that reduce processing time by 75%.
+                  I specialize in <strong>microservices architecture</strong>, <strong>Spring Boot</strong>, and <strong>cloud-native applications</strong>.
                 </p>
                 <p>
-                  I'm passionate about data structures, algorithms, and building efficient solutions. I've led deployment efforts for major banks
-                  and have experience in developing scalable backend systems and automation solutions.
+                  I'm passionate about <strong>data structures and algorithms</strong>, building efficient solutions, and modern software engineering practices.
+                  I've led deployment efforts for major banks and have extensive experience in developing scalable backend systems, automation solutions, and high-performance applications.
+                  My technical expertise includes <strong>Go programming</strong>, <strong>Java development</strong>, <strong>Redis caching</strong>, <strong>Python automation</strong>, and <strong>AWS cloud services</strong>.
                 </p>
                 <div className="education-info">
                   <h4>Education</h4>
