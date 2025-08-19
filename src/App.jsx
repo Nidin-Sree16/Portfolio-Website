@@ -271,7 +271,7 @@ function App() {
                 transition={{ duration: 1, delay: 1 }}
               >
                 <div className="stat-item">
-                  <span className="stat-number">2+</span>
+                  <span className="stat-number">2.5+</span>
                   <span className="stat-label">Years Experience</span>
                 </div>
                 <div className="stat-item">
@@ -376,7 +376,7 @@ function App() {
                 <div className="experience-content">
                   <h3>Software Engineer 1</h3>
                   <h4>Tekion Corp • Chennai, India</h4>
-                  <p className="experience-date">May 2024 - Present</p>
+                  <p className="experience-date">May 2025 - Present</p>
                   <ul>
                     <li>Developing scalable backend services using Go (Golang) and microservices architecture</li>
                     <li>Working with Redis for high-performance caching and data storage solutions</li>
@@ -397,7 +397,7 @@ function App() {
                 <div className="experience-content">
                   <h3>Associate Software Engineer</h3>
                   <h4>Crayon Data • Chennai, India</h4>
-                  <p className="experience-date">Aug 2023 - May 2024</p>
+                  <p className="experience-date">Aug 2023 - May 2025</p>
                   <ul>
                     <li>Contributed to development of maya.ai recommendation engine using Java Spring Boot and ElasticSearch</li>
                     <li>Built and optimized Offer Portal, reducing onboarding time by 50%</li>
@@ -533,7 +533,7 @@ function App() {
       {/* Footer */}
       <footer className="footer">
         <div className="container">
-          <p>&copy; 2024 Nidin Sreenivasan. All rights reserved.</p>
+          <p>&copy; 2025 Nidin Sreenivasan. All rights reserved.</p>
         </div>
       </footer>
     </div>
