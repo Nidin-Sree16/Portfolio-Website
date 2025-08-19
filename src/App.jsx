@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Menu, X, Github, Linkedin, Mail, ExternalLink, Code, Database, Globe, Smartphone, Brain, Zap } from 'lucide-react'
 import MatrixBackground from './components/MatrixBackground'
 import HolographicCard, { SkillCard, ProjectCard } from './components/HolographicCard'
+import profileImage from './assets/nidin.jpeg'
 import './App.css'
 
 // SEO Component for dynamic meta updates
@@ -337,8 +338,13 @@ function App() {
                 transition={{ duration: 0.6, delay: 0.4 }}
                 viewport={{ once: true }}
               >
-                <div className="image-placeholder">
-                  <span>Profile Image</span>
+                <div className="profile-image-container">
+                  <img
+                    src={profileImage}
+                    alt="Nidin Sreenivasan - Software Engineer"
+                    className="profile-image"
+                    loading="lazy"
+                  />
                 </div>
               </motion.div>
             </div>
