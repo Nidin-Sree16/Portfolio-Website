@@ -24,6 +24,32 @@ const SEOHead = () => {
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [activeSection, setActiveSection] = useState('home')
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768)
+    }
+
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobile && isMenuOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [isMobile, isMenuOpen])
 
   // Navigation items
   const navItems = [
@@ -220,16 +246,18 @@ function App() {
                 <motion.button
                   className="btn btn-primary"
                   onClick={() => scrollToSection('projects')}
-                  whileHover={{ scale: 1.05 }}
+                  whileHover={isMobile ? {} : { scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
+                  style={{ minHeight: isMobile ? '48px' : 'auto' }}
                 >
                   View Projects
                 </motion.button>
                 <motion.button
                   className="btn btn-secondary"
                   onClick={() => scrollToSection('contact')}
-                  whileHover={{ scale: 1.05 }}
+                  whileHover={isMobile ? {} : { scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
+                  style={{ minHeight: isMobile ? '48px' : 'auto' }}
                 >
                   Get In Touch
                 </motion.button>
